@@ -1,0 +1,81 @@
+#!/usr/bin/dev python
+
+# Author: Douglas Otwell
+# This software is released to the public domain
+
+# The Software is provided "as is" without warranty of any kind, either express or implied,
+# including without limitation any implied warranties of condition, uninterrupted use,
+# merchantability, fitness for a particular purpose, or non-infringement.
+
+import signal
+import logging
+import dbus
+import dbus.service
+import dbus.mainloop.glib
+import gobject
+from optparse import OptionParser, make_option
+
+LOG_LEVEL = logging.DEBUG
+LOG_FILE = "/var/log/pinaple.log"
+
+def adapter_property_changed_cb(name, value, path, interface):
+
+    if (name == "Discoverable"):
+        discoverable = "" if value else "not "
+        logging.info("The Bluetooth adapter is %sdiscoverable" % (discoverable))
+    else:
+        logging.info("%s %s %s %s" % (interface, path, name, str(value)))
+
+
+def device_property_changed_cb(name, value, path, interface):
+
+    device = dbus.Interface(bus.get_object("org.bluez", path), "org.bluez.Device")
+    properties = device.GetProperties()
+
+    if (name == "Connected"):
+        connected = "connected to" if value else "disconnected from"
+        logging.info("The device %s [%s] is %s the NAP" % (properties["Alias"], properties["Address"], connected))
+    else:
+        logging.info("%s %s %s %s" % (interface, path, name, str(value)))
+
+def shutdown(signum, frame):
+
+    logging.info("Shutting down pinaple")
+    mainloop.quit()
+
+if __name__ == "__main__":
+
+    # start logging   
+    logging.basicConfig(filename=LOG_FILE, format="%(asctime)s %(levelname)s %(message)s", level=LOG_LEVEL)
+    logging.info("Starting pinaple daemon")
+
+    # shut down on a TERM signal 
+    signal.signal(signal.SIGTERM, shutdown)
+
+    # get the name of the bridge device 
+    parser = OptionParser()
+    (options, args) = parser.parse_args()
+    if (len(args) < 1):
+        raise Exception("No bridge device name was specified as first argument")
+    else:
+        bridge = args[0]
+
+    # get the default bluetooth adapter
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    manager = dbus.Interface(bus.get_object("org.bluez", "/"), "org.bluez.Manager")
+    adapter_path = manager.DefaultAdapter()
+
+    # register the NAP service for the bridge device
+    server = dbus.Interface(bus.get_object("org.bluez", adapter_path), "org.bluez.NetworkServer")
+    server.Register("nap", bridge)
+    logging.info("NAP service registered on bridge [%s]" % (bridge))
+
+    # listen for signals on the Bluez bus
+    bus.add_signal_receiver(device_property_changed_cb, bus_name="org.bluez", signal_name="PropertyChanged", 
+            dbus_interface="org.bluez.Device", path_keyword="path", interface_keyword="interface")
+    bus.add_signal_receiver(adapter_property_changed_cb, bus_name="org.bluez", signal_name="PropertyChanged", 
+            dbus_interface="org.bluez.Adapter", path_keyword="path", interface_keyword="interface")
+
+    mainloop = gobject.MainLoop()
+    mainloop.run()
