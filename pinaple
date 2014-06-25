@@ -16,14 +16,14 @@ DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 
 # Change the following line to reflect the name of your network bridge
-DAEMON_ARGS=br0
+DAEMON_ARGS=pan0
 
 . /lib/lsb/init-functions
 
 do_start() {
 	log_daemon_msg "Starting system $DAEMON_NAME daemon"
-	start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --startas $DAEMON -- $DAEMON_ARGS
-	log_end_msg $?
+	start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --startas $DAEMON --test > /dev/null || return 1
+	start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --startas $DAEMON -- $DAEMON_ARGS || return 2
 }
 
 do_stop() {
@@ -33,9 +33,20 @@ do_stop() {
 }
 
 case "$1" in
+	start)
+		log_daemon_msg "Starting $DESC" "$NAME"
+		do_start
+#		case "$?" in
+#			0|1) log_end_msg 0 
+#			;;
+#			2) log_end_msg 1 
+#			;;
+#		esac
+	;;
 
-	start|stop)
-		do_${1}
+	stop)
+		log_daemon_msg "Stopping $DESC" "$NAME"
+		do_stop()
 	;;
 
 	restart|reload|force-reload)

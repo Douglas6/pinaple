@@ -1,4 +1,4 @@
-#!/usr/bin/dev python
+#!/usr/bin/env python
 
 # Author: Douglas Otwell
 # This software is released to the public domain
@@ -26,6 +26,22 @@ class Agent(dbus.service.Object):
         print "Pairing and trusting device %s [%s]" % (properties["Alias"], properties["Address"])
         device.SetProperty("Trusted", dbus.Boolean(True))
         return pin_code
+
+    @dbus.service.method("org.bluez.Agent", in_signature="ou", out_signature="")
+    def RequestConfirmation(self, device_path, passkey):
+        device = dbus.Interface(bus.get_object("org.bluez", device_path), "org.bluez.Device")
+        properties = device.GetProperties()
+        print "Pairing and trusting device %s [%s] with passkey [%s]" % (properties["Alias"], properties["Address"], passkey)
+        device.SetProperty("Trusted", dbus.Boolean(True))
+        return
+
+    @dbus.service.method("org.bluez.Agent", in_signature="os", out_signature="")
+    def Authorize(self, device, uuid):
+        print "Authorize (%s, %s)" % (device, uuid)
+        authorize = raw_input("Authorize connection (yes/no): ")
+        if (authorize == "yes"):
+            return
+        raise Rejected("Connection rejected by user")
 
 if __name__ == '__main__':
 
@@ -57,8 +73,12 @@ if __name__ == '__main__':
     # register the pinaple agent
     agent_path = "/pinaple/agent"
     agent = Agent(bus, agent_path)
-    adapter.RegisterAgent(agent_path, "KeyboardDisplay")
-    print "Waiting to pair devices...."
+    try:
+        adapter.RegisterAgent(agent_path, "KeyboardDisplay")
+        print "Waiting to pair devices...."
+    except dbus.exceptions.DBusException, ex:
+        print "A Bluetooth agent is currently running. Exiting pinaple-agent", ex
+        raise SystemExit
 
     mainloop = gobject.MainLoop()
     try:
@@ -67,4 +87,5 @@ if __name__ == '__main__':
         print "\nMaking Bluetooth adapter undiscoverable"
         adapter.SetProperty("Discoverable", dbus.Boolean(False, variant_level=1))
         adapter.UnregisterAgent(agent_path)
-        raise SystemExit
+#        raise SystemExit
+        mainloop.quit()
