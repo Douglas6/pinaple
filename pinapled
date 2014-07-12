@@ -16,8 +16,8 @@ import dbus.mainloop.glib
 import gobject
 from optparse import OptionParser, make_option
 
-LOG_LEVEL = logging.DEBUG
-#LOG_FILE = "/var/log/pinaple.log"
+LOG_LEVEL = logging.INFO
+#LOG_LEVEL = logging.DEBUG
 LOG_FILE = "/dev/stdout"
 LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 
@@ -77,23 +77,23 @@ if __name__ == "__main__":
     try:
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
         bus = dbus.SystemBus()
-    except:
-        logging.error("Unable to get the system dbus. Exiting pinapled. Is dbus running?")
+    except Exception as ex:
+        logging.error("Unable to get the system dbus: '{0}'. Exiting pinapled. Is dbus running?".format(ex.message))
         sys.exit(1) 
 
     try:
         manager = dbus.Interface(bus.get_object("org.bluez", "/"), "org.bluez.Manager")
         adapter_path = manager.DefaultAdapter()
-    except:
-        logging.error("Unable to get default Bluetooth adapter. Exiting pinapled. Is the adapter connected and up and running?")
+    except Exception as ex:
+        logging.error("Unable to get default Bluetooth adapter: '{0}'. Exiting pinapled. Is the adapter connected and up and running?".format(ex.message))
         sys.exit(1) 
 
     # register the NAP service for the bridge device
     try:
         server = dbus.Interface(bus.get_object("org.bluez", adapter_path), "org.bluez.NetworkServer")
         server.Register("nap", bridge)
-    except:
-        logging.error("Unable to register the NAP service on the specified bridge {0}. Exiting pinapled. Is the bridge up?".format(bridge))
+    except Exception as ex:
+        logging.error("Unable to register the NAP service on the specified bridge {0}: '{1}'. Exiting pinapled. Is the bridge up?".format(bridge, ex.message))
         sys.exit(1) 
     logging.info("NAP service registered on bridge {0}".format(bridge))
 

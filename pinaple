@@ -16,7 +16,8 @@ DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 
 # Change the following line to reflect the name of your network bridge
-DAEMON_ARGS=pan0
+DAEMON_ARGS="br0 -l /var/log/pinaple.log"
+#DAEMON_ARGS="br0"
 
 . /lib/lsb/init-functions
 
@@ -35,17 +36,11 @@ case "$1" in
 	start)
 		log_daemon_msg "Starting $DESC" "$NAME"
 		do_start
-#		case "$?" in
-#			0|1) log_end_msg 0 
-#			;;
-#			2) log_end_msg 1 
-#			;;
-#		esac
 	;;
 
 	stop)
 		log_daemon_msg "Stopping $DESC" "$NAME"
-		do_stop()
+		do_stop
 	;;
 
 	restart|reload|force-reload)
